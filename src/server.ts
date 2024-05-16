@@ -11,6 +11,8 @@ AWS.config.update({
   accessKeyId: process.env.ACCESS_KEY_ID,
   secretAccessKey: process.env.SECRET_ACCESS_KEY,
   region: "us-east-1",
+  sslEnabled: false,
+  s3ForcePathStyle: true,
 });
 
 // Create an S3 object
@@ -80,7 +82,6 @@ export default class Server {
           console.error("Error reading file:", err);
           return res.status(500).send(err);
         }
-        console.log("File content:", data);
         return res.send({
           code: 0,
           message: "success",
@@ -99,7 +100,8 @@ export default class Server {
         {
           Bucket: "jacky-web-editor",
           Key: newFileName,
-          Body: uploadedFile.tempFilePath,
+          Body: uploadedFile.data,
+          Tagging: "public=yes",
         },
         (err, data) => {
           if (err) {
