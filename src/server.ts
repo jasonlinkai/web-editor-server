@@ -5,8 +5,12 @@ import path from "path";
 import { v4 } from "uuid";
 import fs from "fs";
 import AWS from "aws-sdk";
-import { GetUploadedImagesS3DataType, PostUploadPageS3DataType, PostUploadS3DataType } from "./typing";
-import ServerResponse from "./utils/ServerResponse";
+import {
+  GetUploadedImagesS3DataType,
+  PostUploadPageS3DataType,
+  PostUploadS3DataType,
+} from "./typing";
+import { ServerResponse } from "./utils/ServerResponse";
 
 // Set the AWS credentials and region
 AWS.config.update({
@@ -100,16 +104,18 @@ export default class Server {
         }
       );
     });
-    
 
     app.post("/upload-page-s3", (req, res) => {
       const ast = req.body;
+      const awsHost = "http://s3.amazonaws.com/jacky-web-editor/";
+      const key = `${ast.uuid}.json`;
+      const awsFilePath = awsHost + key;
       const json = JSON.stringify(req.body);
       s3.upload(
         {
           Bucket: "jacky-web-editor",
           Key: `${ast.uuid}.json`,
-          ContentType: 'application/json',
+          ContentType: "application/json",
           Body: json,
           Tagging: "public=yes",
         },
@@ -119,20 +125,42 @@ export default class Server {
           } else {
             console.log("File uploaded successfully. Location:", data.Location);
             const filePath = paths.data + "/pages.txt";
-            fs.appendFile(filePath, `${data.Location},`, (err) => {
+            fs.readFile(filePath, (err, txtData) => {
               if (err) {
-                console.error("Error appending to file:", err);
+                console.error("Error read to file:", err);
                 return res.status(500).send(err);
               }
-              console.log("New text has been appended to", filePath);
+              const pageUrls = txtData
+                .toString("utf8")
+                .split(",")
+                .filter((a) => a);
+
+              const needAppend = !pageUrls.includes(awsFilePath);
+              if (needAppend) {
+                fs.appendFile(filePath, `${data.Location},`, (err) => {
+                  if (err) {
+                    console.error("Error appending to file:", err);
+                    return res.status(500).send(err);
+                  }
+                  console.log("New text has been appended to", filePath);
+                });
+                return res.send(
+                  new ServerResponse<PostUploadPageS3DataType>({
+                    code: 0,
+                    message: "success",
+                    data: true,
+                  })
+                );
+              } else {
+                return res.send(
+                  new ServerResponse<PostUploadPageS3DataType>({
+                    code: 0,
+                    message: "success",
+                    data: true,
+                  })
+                );
+              }
             });
-            return res.send(
-              new ServerResponse<PostUploadPageS3DataType>({
-                code: 0,
-                message: "success",
-                data: true,
-              })
-            );
           }
         }
       );
